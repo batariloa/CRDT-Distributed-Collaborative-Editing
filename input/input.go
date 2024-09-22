@@ -56,6 +56,11 @@ func ListenKeys(inputChan chan<- rune, quitChan chan<- struct{}) {
       return
     }
 
+    if key == keyboard.KeySpace {
+      inputChan <- ' '
+      continue
+    }
+
     log.Printf("Input char %d", char)
 
     inputChan <- char
@@ -68,7 +73,7 @@ func ListenKeys(inputChan chan<- rune, quitChan chan<- struct{}) {
 
     for {
 
-      tree.DisplayDocument(ct)
+    tree.DisplayDocument(ct)
       select {
 
          case inputChar := <- inputChan:
