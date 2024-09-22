@@ -77,3 +77,12 @@ func (ct *CausalTree) CreateNode(parent *TreeNode, character string,
     Children: []*TreeNode{},
   }
 }
+
+func (ct *CausalTree) GetLastChildId(parentID int) (int, bool) {
+    parentNode := FindNodeBFS(ct.Root, parentID)
+    if parentNode != nil && len(parentNode.Children) > 0 {
+        lastChild := parentNode.Children[len(parentNode.Children)-1]
+        return lastChild.ID, true
+    }
+    return -1, false
+}
