@@ -8,91 +8,104 @@ import (
 	"github.com/eiannone/keyboard"
 )
 
+var cursorPos = 0
+
 func EditDocument(ct *tree.CausalTree) {
+	inputChan := make(chan rune, 5)
+	quitChan := make(chan struct{})
 
-  inputChan := make(chan rune, 5)
-  quitChan := make(chan struct{})
+	var wg sync.WaitGroup
 
-  var wg sync.WaitGroup
+	wg.Add(1)
 
- 
-  wg.Add(1)
+	go func() {
+		defer wg.Done()
+		ListenKeys(inputChan, quitChan)
+	}()
 
-  go func() {
-    defer wg.Done()
-    ListenKeys(inputChan, quitChan)
-  }()
+	go func() {
+		defer wg.Done()
+		HandleInputs(inputChan, quitChan, ct)
+	}()
 
-  go func() {
-    defer wg.Done()
-    HandleInputs(inputChan, quitChan, ct)
-  }()
-
-  wg.Wait()
-
+	wg.Wait()
 }
 
 func ListenKeys(inputChan chan<- rune, quitChan chan<- struct{}) {
+	if err := keyboard.Open(); err != nil {
+		log.Fatal(err)
+	}
+	defer keyboard.Close()
 
-  if err := keyboard.Open(); err != nil {
+	for {
 
-    log.Fatal(err)
-  }
-  defer keyboard.Close()
+		char, key, err := keyboard.GetKey()
+		if err != nil {
+			log.Print(err)
+			close(quitChan)
+			return
+		}
 
+		if key == keyboard.KeyEsc {
+			close(quitChan)
+			return
+		}
 
-  for {
+		if key == keyboard.KeySpace {
+			inputChan <- ' '
+			continue
+		}
 
-    char, key, err := keyboard.GetKey()
+		if key == keyboard.KeyArrowLeft {
+			inputChan <- '←'
+			continue
+		}
 
-    if err != nil {
-      log.Print(err)
-      close(quitChan)
-      return
-    }
+		if key == keyboard.KeyArrowRight {
+			inputChan <- '→'
+			continue
+		}
 
-    if key == keyboard.KeyEsc {
-      close(quitChan)
-      return
-    }
+		log.Printf("Input char %d", char)
 
-    if key == keyboard.KeySpace {
-      inputChan <- ' '
-      continue
-    }
-
-    log.Printf("Input char %d", char)
-
-    inputChan <- char
-  }
+		inputChan <- char
+	}
 }
 
-  func HandleInputs(inputChan <-chan rune, quitChan <-chan struct{}, ct *tree.CausalTree) {
+func HandleInputs(inputChan <-chan rune, quitChan <-chan struct{}, ct *tree.CausalTree) {
+	for {
 
-    parentID := ct.Root.ID // Start with the root node as the initial parent
+		tree.DisplayDocument(ct)
+		select {
 
-    for {
+		case inputChar := <-inputChan:
 
-    tree.DisplayDocument(ct)
-      select {
+			if !handleCursorInputs(inputChar) {
+				// Only insert the character if it's not a cursor input
+				parentID := tree.GetNodeIdAtPos(cursorPos)
+				ct.AddInsertNode(string(inputChar), parentID)
+				cursorPos++
+			}
 
-         case inputChar := <- inputChan:
+		case <-quitChan:
 
-            ct.AddNode(string(inputChar), parentID) 
-            childID, exists := ct.GetLastChildId(parentID)  
+			return
+		}
+	}
+}
 
-            if exists {
-                // Update parentID to the new child's ID for sequential insertion
-                parentID = childID
-            } else {
-                // If no child exists, reset parentID to root's ID
-                parentID = ct.Root.ID
-            }
+func handleCursorInputs(inputChar rune) bool {
+	switch inputChar {
+	case '←':
 
-         case <- quitChan:
+		cursorPos--
+		return true
 
-          return;
-      }
-    }
+	case '→':
 
+		cursorPos++
+		return true
+	}
+
+	return false
 }

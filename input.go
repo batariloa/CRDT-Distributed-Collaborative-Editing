@@ -47,7 +47,7 @@ func ListenKeys(inputChan chan<- rune, quitChan chan<- struct{}) {
 
          case inputChar := <- inputChan:
 
-            ct.AddNode(string(inputChar), parentID) 
+            ct.AddInsertNode(string(inputChar), parentID) 
             childID, exists := ct.GetLastChildId(parentID)  
 
             if exists {

@@ -45,11 +45,19 @@ const (
 	Delete
 )
 
+type OperationMessage struct {
+    OperationType Operation // Insert or Delete
+    NodeID        int       // ID of the node being inserted or deleted
+    ParentID      int       // ID of the parent node (only for insert)
+    Character     string    // Character being inserted (only for insert)
+    VectorClock   []int     // Vector clock for causal ordering
+}
+
 func (ct *CausalTree) getNodeById(id int) *TreeNode {
   return FindNodeBFS(ct.Root, id)
 }
 
-func (ct *CausalTree) AddNode(character string, parentId int) {
+func (ct *CausalTree) AddInsertNode(character string, parentId int) *OperationMessage {
 
   parentNode := ct.getNodeById(parentId)
 
@@ -61,6 +69,39 @@ func (ct *CausalTree) AddNode(character string, parentId int) {
     append([]int(nil), ct.VectorClock...))
 
   parentNode.Children = append(parentNode.Children, newNode)
+
+  opMsg := &OperationMessage{
+      OperationType: Delete,
+      NodeID:        newNode.ID,
+      ParentID: parentId,
+      Character: character,
+      VectorClock:   parentNode.VectorClock,
+    }
+
+  return opMsg
+}
+
+func (ct *CausalTree) AddDeleteNode(targetNodeId int) *OperationMessage {
+
+  targetNode := ct.getNodeById(targetNodeId)
+
+  ct.VectorClock[config.InstanceNum]++
+
+  deleteNode := ct.CreateNode(
+    targetNode, 
+    "",
+    Delete,
+    append([]int(nil), ct.VectorClock...))
+
+  targetNode.Children = append(targetNode.Children, deleteNode)
+
+  opMsg := &OperationMessage{
+      OperationType: Delete,
+      NodeID:        targetNodeId,        // ID of the node being deleted
+      VectorClock:   deleteNode.VectorClock,
+    }
+
+  return opMsg
 }
 
 func (ct *CausalTree) CreateNode(parent *TreeNode, character string,
